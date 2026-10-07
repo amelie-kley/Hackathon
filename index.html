@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Deal Learning Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: app shell — left rail (owner + deals), main deal page, chat panel docked right on wide screens */
+:root{
+  --bg:#F9FAFB; --surface:#FFFFFF; --line:#E5E7EB; --line-2:#D1D5DB;
+  --ink:#111827; --ink-2:#374151; --body:#4B5563; --muted:#6B7280; --faint:#9CA3AF;
+  --green:#0ED6A9; --purple:#818CF8;
+  --ok-bg:#ECFDF5; --ok:#065F46; --warn-bg:#FFFBEB; --warn:#92400E; --bad-bg:#FEF2F2; --bad:#991B1B;
+  --sel:#EEF2FF; --chip:#F3F4F6;
+  --display:'Inter Tight',system-ui,sans-serif; --text:'Inter',system-ui,sans-serif;
+  --sh-sm:0 1px 2px rgba(0,0,0,.05); --sh-md:0 4px 12px rgba(0,0,0,.08);
+  --ease:cubic-bezier(.25,.46,.45,.94);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B0F17; --surface:#121826; --line:#232B3A; --line-2:#334155;
+  --ink:#F3F4F6; --ink-2:#D1D5DB; --body:#B6BDC9; --muted:#9CA3AF; --faint:#6B7280;
+  --ok-bg:#0B2A22; --ok:#6EE7B7; --warn-bg:#2A2110; --warn:#FCD34D; --bad-bg:#2A1214; --bad:#FCA5A5;
+  --sel:#1E2440; --chip:#1A2132; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B0F17; --surface:#121826; --line:#232B3A; --line-2:#334155;
+  --ink:#F3F4F6; --ink-2:#D1D5DB; --body:#B6BDC9; --muted:#9CA3AF; --faint:#6B7280;
+  --ok-bg:#0B2A22; --ok:#6EE7B7; --warn-bg:#2A2110; --warn:#FCD34D; --bad-bg:#2A1214; --bad:#FCA5A5;
+  --sel:#1E2440; --chip:#1A2132; color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--bg);color:var(--body);font-family:var(--text);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;margin:0}
+h1,h2,h3{font-family:var(--display);color:var(--ink);font-weight:500;margin:0;text-wrap:balance}
+strong{font-weight:500;color:var(--ink-2)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
+
+.top{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:env(safe-area-inset-top,0px);z-index:5;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.brand svg{width:22px;height:22px}
+.brand b{font-family:var(--display);font-weight:600;font-size:16px}
+.brand span{font-size:12px;color:var(--muted)}
+.sources{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.src{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--surface)}
+.dot{width:7px;height:7px;border-radius:50%;background:#10B981}
+.dot.new{background:var(--purple)}
+.demo-tag{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:2px 8px}
+
+.shell{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;min-height:calc(100vh - 58px)}
+@media (max-width:1180px){.shell{grid-template-columns:280px minmax(0,1fr)}.chat{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);position:static!important;height:auto!important}}
+@media (max-width:760px){.shell{grid-template-columns:1fr}.rail{border-right:0;border-bottom:1px solid var(--line)}}
+
+.rail{border-right:1px solid var(--line);background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.eyebrow{font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--faint)}
+label.eyebrow{display:block;margin-bottom:6px}
+select{width:100%;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:8px 10px}
+.deal-list{display:flex;flex-direction:column;gap:6px}
+.deal-btn{display:grid;grid-template-columns:1fr auto;gap:2px 8px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 12px;color:var(--body);transition:border-color .2s var(--ease),box-shadow .2s var(--ease)}
+.deal-btn:hover{border-color:var(--line-2);box-shadow:var(--sh-sm)}
+.deal-btn[aria-current="true"]{border-color:var(--purple);background:var(--sel)}
+.deal-btn .n{font-family:var(--display);font-weight:500;color:var(--ink);font-size:14px;min-width:0}
+.deal-btn .m{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.deal-btn .age{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)}.p-warn{background:var(--warn-bg);color:var(--warn)}.p-bad{background:var(--bad-bg);color:var(--bad)}.p-n{background:var(--chip);color:var(--ink-2)}
+.learn{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.learn li{font-size:13px;color:var(--ink-2)}
+.learn ul{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:8px}
+.learn small{display:block;color:var(--faint);font-size:11px}
+.empty{font-size:13px;color:var(--muted);border:1px dashed var(--line-2);border-radius:8px;padding:12px}
+
+main{padding:24px 28px 48px;min-width:0;display:flex;flex-direction:column;gap:20px}
+@media (max-width:760px){main{padding:20px 16px 40px}}
+.head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 20px}
+.head h1{font-size:28px;line-height:1.2}
+.head .meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);margin-top:6px}
+.head .right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{border-radius:999px;padding:8px 16px;border:1px solid var(--muted);background:transparent;color:var(--ink);font-size:13px;transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--sh-md)}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+.hyp{border-radius:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(14,214,169,.10),rgba(129,140,248,.12));border:1px solid var(--line);display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:center}
+.hyp .eyebrow{color:var(--ink-2)}
+.hyp p{margin:0;color:var(--ink);font-family:var(--display);font-size:16px;grid-column:1/-1}
+.hyp .verdict{justify-self:end}
+.hyp .chan{font-size:12px;color:var(--muted)}
+
+/* stage tracker */
+.track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.st{display:flex;flex-direction:column;gap:6px;min-width:0}
+.st .bar{height:6px;border-radius:999px;background:var(--line)}
+.st.done .bar{background:linear-gradient(90deg,var(--green),var(--purple))}
+.st.now .bar{background:linear-gradient(90deg,var(--green),var(--purple));opacity:.45}
+.st.dq .bar{background:#EF4444}
+.st span{font-size:12px;color:var(--muted)}
+.st.done span,.st.now span{color:var(--ink-2);font-weight:500}
+.st small{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.card.wide{grid-column:1/-1}
+.card h2{font-size:16px}
+.card .sub{font-size:12px;color:var(--faint);margin-top:-6px}
+.card p{margin:0}
+.kv{display:grid;grid-template-columns:140px minmax(0,1fr);gap:6px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;color:var(--ink-2)}
+@media (max-width:480px){.kv{grid-template-columns:1fr}.kv dt{margin-top:6px}}
+.pains{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.pains li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.sev{width:8px;height:8px;border-radius:50%;margin-top:7px}
+.sev.h{background:#EF4444}.sev.m{background:#FBBF24}.sev.l{background:var(--faint)}
+.pains b{color:var(--ink);font-weight:500}
+.quote{grid-column:2;font-size:13px;color:var(--muted);border-left:2px solid var(--line-2);padding-left:10px;font-style:italic}
+.cite{font-style:normal;font-size:11px;color:var(--faint);display:block;margin-top:2px}
+.ms{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
+.ms li{display:grid;grid-template-columns:28px 1fr;gap:2px 10px}
+.ms .q{font-weight:500;color:var(--ink)}
+.ms .a{grid-column:2;font-size:13px}
+.yn{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600}
+.yn.y{background:var(--ok-bg);color:var(--ok)}.yn.n{background:var(--bad-bg);color:var(--bad)}.yn.p{background:var(--chip);color:var(--muted)}
+.signals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sig{border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.sig .eyebrow{font-size:10px;letter-spacing:1.6px}
+.sig div{color:var(--ink-2);font-size:13px;margin-top:2px}
+.next{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.next li{display:grid;grid-template-columns:18px 1fr;gap:10px;font-size:13px;color:var(--ink-2)}
+.next input{margin-top:3px;accent-color:var(--purple)}
+.ask-next{font-size:13px;background:var(--chip);border-radius:8px;padding:10px 12px;color:var(--ink-2)}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:86px 22px minmax(0,1fr);gap:0 10px;position:relative;padding-bottom:14px}
+.tl li::before{content:"";position:absolute;left:96px;top:20px;bottom:0;width:1px;background:var(--line)}
+.tl li:last-child::before{display:none}
+.tl time{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;padding-top:2px}
+.ico{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:600;color:var(--ink-2);background:var(--chip);border:1px solid var(--line)}
+.ico.call{background:var(--sel);color:var(--purple);border-color:transparent}
+.tl .t{color:var(--ink);font-weight:500;font-size:13px}
+.tl .d{font-size:13px}
+.tl .w{font-size:12px;color:var(--faint)}
+
+/* chat */
+.chat{border-left:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;position:sticky;top:58px;height:calc(100vh - 58px);min-width:0}
+.chat-h{padding:16px 16px 10px;border-bottom:1px solid var(--line)}
+.chat-h h2{font-size:16px}
+.chat-h p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:220px}
+.msg{max-width:92%;font-size:13px;line-height:1.55;padding:9px 12px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.u{align-self:flex-end;background:var(--ink);color:var(--surface);border-bottom-right-radius:4px}
+.msg.a{align-self:flex-start;background:var(--chip);color:var(--ink-2);border-bottom-left-radius:4px}
+.msg.a.think{color:var(--faint);font-style:italic}
+.sugs{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px}
+.sug{font-size:12px;border:1px solid var(--line-2);background:transparent;color:var(--ink-2);border-radius:999px;padding:4px 10px}
+.sug:hover{border-color:var(--purple)}
+form.ask{display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+form.ask input{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line-2);border-radius:999px;padding:9px 14px}
+.mode{font-size:11px;color:var(--faint);padding:0 16px 8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 34.92 35.44" aria-hidden="true"><path d="M0 8.27514C3.49186 8.27514 5.2378 12.151 8.72966 12.151C12.2215 12.151 13.9675 8.27514 17.4593 8.27514C20.9512 8.27514 22.6622 12.151 26.189 12.151C29.7158 12.151 31.4268 8.27514 34.9186 8.27514V0.523438C31.4268 0.523438 29.6808 4.39929 26.189 4.39929C22.6971 4.39929 20.9163 0.523438 17.4593 0.523438C14.0024 0.523438 12.2215 4.39929 8.72966 4.39929C5.2378 4.39929 3.49186 0.523438 0 0.523438V8.27514Z" fill="currentColor"/><path d="M0 19.937C3.49186 19.937 5.2378 23.8129 8.72966 23.8129C12.2215 23.8129 13.9675 19.937 17.4593 19.937C20.9512 19.937 22.6622 23.8129 26.189 23.8129C29.7158 23.8129 31.4268 19.937 34.9186 19.937V12.1504C31.4268 12.1504 29.6808 16.0262 26.189 16.0262C22.6971 16.0262 20.9163 12.1504 17.4593 12.1504C14.0024 12.1504 12.2215 16.0262 8.72966 16.0262C5.2378 16.0262 3.49186 12.1504 0 12.1504V19.937Z" fill="currentColor"/><path d="M0 31.5652C3.49186 31.5652 5.2378 35.441 8.72966 35.441C12.2215 35.441 13.9675 31.5652 17.4593 31.5652C20.9512 31.5652 22.6622 35.441 26.189 35.441C29.7158 35.441 31.4268 31.5652 34.9186 31.5652V23.8135C31.4268 23.8135 29.6808 27.6893 26.189 27.6893C22.6971 27.6893 20.9163 23.8135 17.4593 23.8135C14.0024 23.8135 12.2215 27.6893 8.72966 27.6893C5.2378 27.6893 3.49186 23.8135 0 23.8135V31.5652Z" fill="currentColor"/></svg>
+    <div><b>Deal Learning Tool</b><br><span>Hackathon prototype</span></div>
+  </div>
+  <span class="demo-tag">Demo data</span>
+  <div class="sources" aria-label="Data sources">
+    <span class="src"><i class="dot"></i>Atlas · Pipedrive</span>
+    <span class="src"><i class="dot new"></i>Glyphic · Aircall calls</span>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="rail">
+    <div>
+      <label class="eyebrow" for="owner">Source owner</label>
+      <select id="owner"></select>
+    </div>
+    <div>
+      <div class="eyebrow" id="dealsLabel" style="margin-bottom:8px">Active deals</div>
+      <div class="deal-list" id="deals"></div>
+    </div>
+    <div class="learn" id="learn"></div>
+  </aside>
+
+  <main id="main"></main>
+
+  <section class="chat" aria-label="Ask about this deal">
+    <div class="chat-h">
+      <h2 id="chatTitle">Ask about this deal</h2>
+      <p>Answers come only from this deal's Pipedrive and Glyphic data.</p>
+    </div>
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+    <div class="sugs" id="sugs"></div>
+    <div class="mode" id="mode">Connecting to Claude…</div>
+    <form class="ask" id="ask">
+      <input id="q" autocomplete="off" placeholder="e.g. What exactly is their pain with TrueCommerce?" aria-label="Your question">
+      <button class="btn primary" type="submit">Ask</button>
+    </form>
+  </section>
+</div>
+
+<script>
+const OWNERS = [
+  {id:"othman", name:"Othman Jorf", team:"UK Outbound"},
+  {id:"johannes", name:"Johannes", team:"DACH"},
+  {id:"amelie", name:"Amelie", team:"Growth"}
+];
+const STAGES = ["Discovery","Demo","Proposal","Contracting","Won"];
+
+const DEALS = [
+{
+  id:"hartwell", owner:"othman", name:"Hartwell Foods", value:"£14.4k ARR", stage:"Demo", stageIdx:1, status:"ok", statusText:"Demo booked", lastTouch:"2 days ago",
+  firmo:"Snack manufacturer · £18M revenue · 85 employees · Leeds",
+  hypothesis:"Food suppliers on TrueCommerce pay per mapping change every time a grocer updates its specs.", channel:"Outbound · cold call", verdict:["Confirmed","p-ok"],
+  stageDates:["24 Sep","9 Oct (booked)","","",""],
+  context:"Discovery call on 24 Sep with Claire Dunmore (Ops Director). Hartwell has used TrueCommerce for 4 years to trade with Tesco and Sainsbury's. Tesco changed its ASN requirements in August and TrueCommerce charged £450 per mapping change, with a three-week turnaround. Two shipments were rejected in that window. Claire is the champion; FD Mark Ellison signs off on budget. Demo is booked for 9 Oct.",
+  lastTouchDetail:"Email from Claire on 5 Oct: wants the demo to cover how fast Procuros handles a retailer spec change.",
+  people:{ours:"Othman Jorf (AE), Lena (Solutions, joins demo)", theirs:"Claire Dunmore (Ops Director, champion), Mark Ellison (FD, budget), external IT contractor"},
+  edi:{setup:"TrueCommerce, managed service", erp:"Sage 200", partners:"Tesco, Sainsbury's, adding Ocado in Q1", volume:"~1,200 orders/month", history:"Went live on EDI in 2021 because Tesco required it. Never owned the mappings themselves."},
+  pains:[
+    {sev:"h", t:"Paying £450 for every mapping change", q:"Every time Tesco sneezes we get an invoice from TrueCommerce.", src:"Discovery call · 24 Sep"},
+    {sev:"h", t:"Three-week turnaround on changes caused 2 rejected ASNs", q:"We had two loads bounced at the DC while we waited on a ticket.", src:"Discovery call · 24 Sep"},
+    {sev:"m", t:"No visibility into failed messages", q:"We only find out something failed when the buyer rings us.", src:"Discovery call · 24 Sep"}
+  ],
+  milestones:[
+    {s:"y", q:"Discovery call", a:"Yes, 24 Sep. Covered: TrueCommerce change costs, Tesco ASN update, Ocado onboarding in Q1."},
+    {s:"y", q:"EDI setup understood", a:"TrueCommerce managed service on Sage 200, 2 retailers live."},
+    {s:"y", q:"Demo booked", a:"Yes, 9 Oct. Focus: spec-change speed and error monitoring."},
+    {s:"p", q:"Disqualified", a:"No."}
+  ],
+  signals:{wtp:"Medium. Compares against ~£9k/yr TrueCommerce + change fees", objections:"Migration risk during Christmas peak", tone:"Frustrated with incumbent, open", timing:"TrueCommerce renewal Jan 2027"},
+  next:["Run demo on 9 Oct with Lena: show a live spec change end to end","Send migration plan that avoids Nov–Dec peak","Get Mark (FD) on a 20-min ROI call"],
+  askNext:"Ask other TrueCommerce food suppliers: \"How much did you pay for mapping changes last year?\"",
+  timeline:[
+    {d:"5 Oct", k:"email", t:"Email from Claire", x:"Asked for the demo to show retailer spec changes.", w:"Pipedrive"},
+    {d:"24 Sep", k:"call", t:"Discovery call · 38 min", x:"TrueCommerce change fees, rejected ASNs, Ocado in Q1.", w:"Glyphic"},
+    {d:"18 Sep", k:"call", t:"Cold call · 6 min", x:"Claire confirmed they're on TrueCommerce and agreed to a discovery call.", w:"Glyphic"},
+    {d:"16 Sep", k:"email", t:"Outbound email #1", x:"Opened 3×, no reply.", w:"Pipedrive"}
+  ]
+},
+{
+  id:"brightwater", owner:"othman", name:"Brightwater Drinks", value:"£22.8k ARR", stage:"Proposal", stageIdx:2, status:"ok", statusText:"Proposal sent", lastTouch:"Today",
+  firmo:"Soft drinks brand · £32M revenue · 140 employees · Bristol",
+  hypothesis:"Brands onboarding Ocado hit SPS Commerce's limits on custom fields.", channel:"Outbound · cold call", verdict:["Partly confirmed","p-warn"],
+  stageDates:["2 Sep","19 Sep","3 Oct","",""],
+  context:"Demo on 19 Sep went well. Raj Patel (Head of Supply Chain) liked the monitoring dashboard and the fact that our team owns the mappings. The real concern is migration risk: they had a 2-day outage when they moved to SPS in 2022. Ocado was a smaller pain than we assumed. The bigger issue is Amazon Vendor Central chargebacks. Proposal sent 3 Oct.",
+  lastTouchDetail:"Call with Raj today: reviewing proposal with the CFO next week, wants a reference customer in drinks.",
+  people:{ours:"Othman Jorf (AE), Lena (Solutions)", theirs:"Raj Patel (Head of Supply Chain, champion), CFO (not met), IT Manager Sam"},
+  edi:{setup:"SPS Commerce", erp:"Microsoft Dynamics 365 Business Central", partners:"Amazon Vendor, Ocado, Booker, Bidfood", volume:"~3,000 orders/month", history:"Migrated from in-house EDI to SPS in 2022. Two-day outage during the switch."},
+  pains:[
+    {sev:"h", t:"Amazon chargebacks for late or wrong ASNs (~£4k/month)", q:"Amazon chargebacks are the number I get asked about in every board meeting.", src:"Demo · 19 Sep"},
+    {sev:"m", t:"Afraid of another migration outage", q:"Last time we moved, we couldn't ship for two days.", src:"Discovery call · 2 Sep"},
+    {sev:"l", t:"Ocado custom fields need workarounds", q:"It's annoying, but we've got a spreadsheet for it.", src:"Discovery call · 2 Sep"}
+  ],
+  milestones:[
+    {s:"y", q:"Discovery call", a:"Yes, 2 Sep. Covered: SPS setup, Ocado, Amazon Vendor."},
+    {s:"y", q:"EDI setup understood", a:"SPS Commerce on Dynamics BC, 4 trading partners."},
+    {s:"y", q:"Demo", a:"Yes, 19 Sep. Liked: monitoring dashboard, managed mappings. Unsure: migration plan."},
+    {s:"p", q:"Disqualified", a:"No."}
+  ],
+  signals:{wtp:"High if we cut chargebacks. They can quantify the cost", objections:"Migration risk, wants a drinks reference", tone:"Analytical, careful", timing:"Decision by end of October"},
+  next:["Send drinks-sector reference (ask CS for a customer)","Share parallel-run migration plan","Book CFO call via Raj"],
+  askNext:"Lead with Amazon chargebacks, not Ocado, for consumer brands on Amazon Vendor.",
+  timeline:[
+    {d:"7 Oct", k:"call", t:"Follow-up call · 14 min", x:"Proposal under review, CFO next week, needs a reference.", w:"Glyphic"},
+    {d:"3 Oct", k:"email", t:"Proposal sent", x:"3-year option included.", w:"Pipedrive"},
+    {d:"19 Sep", k:"call", t:"Demo · 52 min", x:"Positive on dashboard; chargebacks came up as the main pain.", w:"Glyphic"},
+    {d:"2 Sep", k:"call", t:"Discovery call · 41 min", x:"SPS setup, migration history, Ocado.", w:"Glyphic"}
+  ]
+},
+{
+  id:"northgate", owner:"othman", name:"Northgate Homeware", value:"£6.0k ARR", stage:"Discovery", stageIdx:0, status:"warn", statusText:"Stalled: no demo", lastTouch:"9 days ago",
+  firmo:"Homeware brand · £6M revenue · 22 employees · Manchester",
+  hypothesis:"Small suppliers keying orders into retailer portals by hand will pay to automate it.", channel:"Outbound · cold call", verdict:["Challenged","p-bad"],
+  stageDates:["22 Sep","","","",""],
+  context:"Discovery on 22 Sep with owner Dan Whitfield. They enter Dunelm and Amazon orders by hand, about 2 hours a day. The pain is real, but Dan pushed back hard on price: \"That's more than I pay the person doing it.\" He declined the demo for now and asked us to come back after Christmas.",
+  lastTouchDetail:"Sent pricing one-pager on 28 Sep. No reply.",
+  people:{ours:"Othman Jorf (AE)", theirs:"Dan Whitfield (Owner, decides alone)"},
+  edi:{setup:"None. Manual entry into Dunelm and Amazon portals", erp:"Xero + Cin7", partners:"Dunelm, Amazon", volume:"~250 orders/month", history:"No EDI yet. Dunelm has not mandated it."},
+  pains:[
+    {sev:"m", t:"2 hours a day of manual order entry", q:"Sophie spends every morning copying orders across.", src:"Discovery call · 22 Sep"},
+    {sev:"l", t:"Occasional typos cause wrong deliveries", q:"Maybe once a month something goes to the wrong store.", src:"Discovery call · 22 Sep"}
+  ],
+  milestones:[
+    {s:"y", q:"Discovery call", a:"Yes, 22 Sep. Covered: manual portal entry, Xero + Cin7, price."},
+    {s:"y", q:"EDI setup understood", a:"No EDI. Portals only."},
+    {s:"n", q:"Demo booked", a:"No. Price: cost is higher than the part-time admin doing the work. Revisit January."},
+    {s:"p", q:"Disqualified", a:"Not yet. Candidate for nurture."}
+  ],
+  signals:{wtp:"Low. Benchmarks against admin salary", objections:"Price; no retailer mandate", tone:"Friendly but not urgent", timing:"January at the earliest"},
+  next:["Move to nurture, follow up mid-January","Check whether Dunelm plans an EDI mandate"],
+  askNext:"For companies under £10M, ask about retailer EDI mandates before pitching. No mandate means low willingness to pay.",
+  timeline:[
+    {d:"28 Sep", k:"email", t:"Pricing one-pager sent", x:"Opened once, no reply.", w:"Pipedrive"},
+    {d:"22 Sep", k:"call", t:"Discovery call · 27 min", x:"Manual entry pain, strong price pushback.", w:"Glyphic"},
+    {d:"15 Sep", k:"call", t:"Cold call · 4 min", x:"Booked discovery.", w:"Glyphic"}
+  ]
+},
+{
+  id:"kestrel", owner:"othman", name:"Kestrel Pet Care", value:"£11.4k ARR", stage:"Discovery", stageIdx:0, status:"ok", statusText:"Discovery done", lastTouch:"4 days ago",
+  firmo:"Pet food & accessories · £11M revenue · 60 employees · Norwich",
+  hypothesis:"Companies running home-grown EDI are one resignation away from a crisis.", channel:"Partnership · Sage partner intro", verdict:["Confirmed","p-ok"],
+  stageDates:["3 Oct","","","",""],
+  context:"Intro from their Sage partner. Discovery on 3 Oct with Tom Reyes (IT Manager). Their EDI was built in-house by one developer, Gary, who leaves in December. Nobody else understands the scripts. Pets at Home and Jollyes are live; Tesco is asking them to go live in spring. Strong urgency.",
+  lastTouchDetail:"Tom sent a list of current message types (ORDERS, DESADV, INVOIC) on 3 Oct.",
+  people:{ours:"Othman Jorf (AE), Sage partner (Hannah, Optimise IT)", theirs:"Tom Reyes (IT Manager), Gary (developer, leaving Dec), MD (not met)"},
+  edi:{setup:"In-house scripts over AS2, built by one developer", erp:"Sage 200", partners:"Pets at Home, Jollyes, Tesco (spring)", volume:"~800 orders/month", history:"Built in 2019 when Pets at Home required EDI."},
+  pains:[
+    {sev:"h", t:"Only one person can maintain the EDI, and he leaves in December", q:"If Gary walks out the door, we stop invoicing Pets at Home.", src:"Discovery call · 3 Oct"},
+    {sev:"m", t:"Tesco onboarding in spring with no capacity to build it", q:"We can't build Tesco on top of what we have.", src:"Discovery call · 3 Oct"}
+  ],
+  milestones:[
+    {s:"y", q:"Discovery call", a:"Yes, 3 Oct. Covered: key-person risk, message types, Tesco onboarding."},
+    {s:"y", q:"EDI setup understood", a:"In-house AS2 scripts on Sage 200."},
+    {s:"p", q:"Demo booked", a:"Not yet. Tom needs the MD in the room."},
+    {s:"p", q:"Disqualified", a:"No."}
+  ],
+  signals:{wtp:"Medium–high. Cost of failure is clear", objections:"None yet", tone:"Urgent, worried", timing:"Must be live before December"},
+  next:["Book demo with Tom + MD before 20 Oct","Ask Hannah (Sage partner) to join","Prepare Gary handover checklist as a hook"],
+  askNext:"Ask every prospect: \"Who maintains your EDI today, and what happens if they leave?\"",
+  timeline:[
+    {d:"3 Oct", k:"email", t:"Message type list from Tom", x:"ORDERS, DESADV, INVOIC for 2 retailers.", w:"Pipedrive"},
+    {d:"3 Oct", k:"call", t:"Discovery call · 44 min", x:"Developer leaving in December, Tesco in spring.", w:"Glyphic"},
+    {d:"29 Sep", k:"email", t:"Intro from Sage partner", x:"Hannah introduced Tom.", w:"Pipedrive"}
+  ]
+},
+{
+  id:"fenwick", owner:"othman", name:"Fenwick & Rowe Cosmetics", value:"£4.8k ARR", stage:"Disqualified", stageIdx:-1, status:"bad", statusText:"Disqualified", lastTouch:"12 days ago",
+  firmo:"Indie cosmetics · £3M revenue · 12 employees · Brighton",
+  hypothesis:"Beauty brands selling to Boots need EDI.", channel:"Outbound · cold call", verdict:["Disproven","p-bad"],
+  stageDates:["17 Sep","","","",""],
+  context:"Discovery on 17 Sep with Priya Shah (co-founder). They only sell to Boots through a distributor, who handles the EDI. About 20 direct orders a month, all by email. Not a fit today.",
+  lastTouchDetail:"Marked disqualified on 25 Sep.",
+  people:{ours:"Othman Jorf (AE)", theirs:"Priya Shah (Co-founder)"},
+  edi:{setup:"None. Distributor handles Boots EDI", erp:"Shopify + spreadsheets", partners:"Boots (via distributor)", volume:"~20 orders/month", history:"Never needed EDI directly."},
+  pains:[
+    {sev:"l", t:"No real EDI pain: the distributor owns the connection", q:"Honestly, our distributor deals with all of that.", src:"Discovery call · 17 Sep"}
+  ],
+  milestones:[
+    {s:"y", q:"Discovery call", a:"Yes, 17 Sep."},
+    {s:"y", q:"EDI setup understood", a:"No direct EDI; distributor handles Boots."},
+    {s:"n", q:"Demo booked", a:"No. No need."},
+    {s:"y", q:"Disqualified", a:"Yes: sells through a distributor, too few direct orders."}
+  ],
+  signals:{wtp:"None", objections:"No need", tone:"Friendly", timing:"n/a"},
+  next:["None. Closed"],
+  askNext:"On cold calls, ask early: \"Do you ship to retailers directly or through a distributor?\"",
+  timeline:[
+    {d:"25 Sep", k:"email", t:"Deal marked disqualified", x:"Reason: sells via distributor.", w:"Pipedrive"},
+    {d:"17 Sep", k:"call", t:"Discovery call · 19 min", x:"Distributor handles Boots EDI.", w:"Glyphic"}
+  ]
+}
+];
+
+const LEARNINGS = [
+  {t:"2 of 3 TrueCommerce or SPS deals named change requests or chargebacks as the main pain, not onboarding.", d:"Hartwell, Brightwater"},
+  {t:"Under £10M with no retailer mandate: price pushback every time.", d:"Northgate, Fenwick & Rowe"},
+  {t:"Key-person risk on home-grown EDI creates the most urgency so far.", d:"Kestrel"}
+];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let ownerId = "othman", dealId = "hartwell";
+
+$("#owner").innerHTML = OWNERS.map(o => `<option value="${o.id}">${esc(o.name)} · ${esc(o.team)}</option>`).join("");
+$("#owner").addEventListener("change", e => { ownerId = e.target.value; const first = DEALS.find(d => d.owner === ownerId); dealId = first ? first.id : null; renderAll(); });
+
+function renderRail(){
+  const mine = DEALS.filter(d => d.owner === ownerId);
+  const active = mine.filter(d => d.status !== "bad").length;
+  $("#dealsLabel").textContent = mine.length ? `${active} active · ${mine.length - active} closed` : "Deals";
+  $("#deals").innerHTML = mine.length ? mine.map(d => `
+    <button class="deal-btn" data-id="${d.id}" aria-current="${d.id === dealId}">
+      <span class="n">${esc(d.name)}</span><span class="age">${esc(d.lastTouch)}</span>
+      <span class="m"><span class="pill p-${d.status === "ok" ? "ok" : d.status === "warn" ? "warn" : "bad"}">${esc(d.statusText)}</span> &nbsp;${esc(d.value)}</span>
+    </button>`).join("")
+    : `<div class="empty">No deals loaded for this owner in the demo. In the real tool, these come from Atlas (Pipedrive).</div>`;
+  document.querySelectorAll(".deal-btn").forEach(b => b.addEventListener("click", () => { dealId = b.dataset.id; renderAll(); }));
+  $("#learn").hidden = !mine.length;
+  $("#learn").innerHTML = `<div class="eyebrow">What my deals taught me</div><ul>${LEARNINGS.map(l => `<li>${esc(l.t)}<small>${esc(l.d)}</small></li>`).join("")}</ul>`;
+}
+
+function renderDeal(){
+  const d = DEALS.find(x => x.id === dealId);
+  if(!d){ $("#main").innerHTML = `<div class="empty">Pick a source owner with deals to see a deal page.</div>`; return; }
+  const dq = d.stageIdx < 0;
+  const track = STAGES.map((s,i) => {
+    const cls = dq ? (i === 0 ? "done" : i === 1 ? "dq" : "") : i < d.stageIdx ? "done" : i === d.stageIdx ? "now" : "";
+    const lbl = dq && i === 1 ? "Disqualified" : s;
+    return `<div class="st ${cls}"><div class="bar"></div><span>${lbl}</span><small>${esc(d.stageDates[i] || "")}</small></div>`;
+  }).join("");
+  $("#main").innerHTML = `
+  <div class="head">
+    <div>
+      <div class="eyebrow">Deal · ${esc(d.channel)}</div>
+      <h1>${esc(d.name)}</h1>
+      <div class="meta"><span>${esc(d.firmo)}</span><span>${esc(d.value)}</span><span>Last touch: ${esc(d.lastTouch)}</span></div>
+    </div>
+    <div class="right"><span class="pill p-${d.status === "ok" ? "ok" : d.status === "warn" ? "warn" : "bad"}">${esc(d.statusText)}</span><button class="btn" type="button" id="openPd">Open in Pipedrive</button></div>
+  </div>
+
+  <div class="hyp">
+    <span class="eyebrow">My hypothesis when I reached out</span><span></span><span class="pill ${d.verdict[1]} verdict">${esc(d.verdict[0])}</span>
+    <p>${esc(d.hypothesis)}</p>
+  </div>
+
+  <div class="track" aria-label="Pipedrive stages">${track}</div>
+
+  <div class="grid">
+    <section class="card wide">
+      <h2>Current context</h2>
+      <p>${esc(d.context)}</p>
+      <p><strong>Last touchpoint:</strong> ${esc(d.lastTouchDetail)}</p>
+      <dl class="kv"><dt>Our side</dt><dd>${esc(d.people.ours)}</dd><dt>Their side</dt><dd>${esc(d.people.theirs)}</dd></dl>
+    </section>
+
+    <section class="card">
+      <h2>Main pain points</h2>
+      <div class="sub">Quoted from Glyphic call transcripts</div>
+      <ul class="pains">${d.pains.map(p => `<li><i class="sev ${p.sev}" title="${p.sev === "h" ? "High" : p.sev === "m" ? "Medium" : "Low"} severity"></i><b>${esc(p.t)}</b><div class="quote">“${esc(p.q)}”<span class="cite">${esc(p.src)}</span></div></li>`).join("")}</ul>
+    </section>
+
+    <section class="card">
+      <h2>Milestones</h2>
+      <ul class="ms">${d.milestones.map(m => `<li><span class="yn ${m.s}">${m.s === "y" ? "✓" : m.s === "n" ? "✕" : "–"}</span><span class="q">${esc(m.q)}</span><span class="a">${esc(m.a)}</span></li>`).join("")}</ul>
+    </section>
+
+    <section class="card">
+      <h2>Their EDI setup</h2>
+      <dl class="kv"><dt>Current setup</dt><dd>${esc(d.edi.setup)}</dd><dt>ERP</dt><dd>${esc(d.edi.erp)}</dd><dt>Trading partners</dt><dd>${esc(d.edi.partners)}</dd><dt>Volume</dt><dd>${esc(d.edi.volume)}</dd><dt>EDI history</dt><dd>${esc(d.edi.history)}</dd></dl>
+    </section>
+
+    <section class="card">
+      <h2>Signals</h2>
+      <div class="signals">
+        <div class="sig"><span class="eyebrow">Willingness to pay</span><div>${esc(d.signals.wtp)}</div></div>
+        <div class="sig"><span class="eyebrow">Objections</span><div>${esc(d.signals.objections)}</div></div>
+        <div class="sig"><span class="eyebrow">Tone</span><div>${esc(d.signals.tone)}</div></div>
+        <div class="sig"><span class="eyebrow">Timing</span><div>${esc(d.signals.timing)}</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Next steps</h2>
+      <ul class="next">${d.next.map((n,i) => `<li><input type="checkbox" id="ns-${d.id}-${i}" aria-label="Done"><label for="ns-${d.id}-${i}">${esc(n)}</label></li>`).join("")}</ul>
+    </section>
+
+    <section class="card">
+      <h2>Take into your next cold call</h2>
+      <div class="ask-next">${esc(d.askNext)}</div>
+    </section>
+
+    <section class="card wide">
+      <h2>Touchpoints</h2>
+      <ol class="tl">${d.timeline.map(t => `<li><time>${esc(t.d)}</time><span class="ico ${t.k}">${t.k === "call" ? "☎" : "✉"}</span><div><div class="t">${esc(t.t)}</div><div class="d">${esc(t.x)}</div><div class="w">Source: ${esc(t.w)}</div></div></li>`).join("")}</ol>
+    </section>
+  </div>`;
+  $("#openPd").addEventListener("click", e => { e.target.textContent = "Links to Pipedrive in the real tool"; });
+}
+
+/* ---------- chat ---------- */
+let sample = null, chats = {}, ctl = null;
+const SUGS = {
+  hartwell:["What exactly is their pain with TrueCommerce?","Who decides on budget?","What should I show in the demo?"],
+  brightwater:["Why haven't they signed yet?","What did they think of our demo?","Was my Ocado hypothesis right?"],
+  northgate:["Why didn't they book a demo?","Is this deal worth chasing?","What would change their mind?"],
+  kestrel:["How urgent is this deal?","Who do I need in the demo?","What's the risk if we're slow?"],
+  fenwick:["Why was this deal disqualified?","What should I ask earlier next time?","Could they become a fit later?"]
+};
+const CANNED = {
+  "What exactly is their pain with TrueCommerce?":"Two things, both from the 24 Sep discovery call:\n\n• Cost: TrueCommerce charges £450 for every mapping change. Tesco changed its ASN spec in August, so they paid again.\n• Speed: the change took three weeks. In that window two shipments were rejected at the Tesco DC.\n\nClaire's words: \"Every time Tesco sneezes we get an invoice from TrueCommerce.\"",
+  "Why didn't they book a demo?":"Price. On the 22 Sep call Dan compared our cost to the part-time admin who keys in the orders (about 2 hours a day) and said we're more expensive. There's also no retailer mandate: Dunelm hasn't required EDI. He asked to revisit in January.",
+  "Why was this deal disqualified?":"They don't trade with Boots directly. A distributor handles the EDI, and they have only ~20 direct orders a month, all by email. Disqualified on 25 Sep.",
+  "Why haven't they signed yet?":"Two blockers from today's call with Raj: the CFO still has to review the proposal next week, and Raj wants a reference customer in drinks. Underneath both is migration risk. They had a two-day outage when they moved to SPS in 2022."
+};
+function dealContext(d){
+  return JSON.stringify({name:d.name, company:d.firmo, stage:d.statusText, hypothesis:d.hypothesis, channel:d.channel, context:d.context, last_touch:d.lastTouchDetail, people:d.people, edi_setup:d.edi, pains:d.pains, milestones:d.milestones, signals:d.signals, next_steps:d.next, touchpoints:d.timeline}, null, 1);
+}
+function renderChat(){
+  const d = DEALS.find(x => x.id === dealId);
+  $("#chatTitle").textContent = d ? `Ask about ${d.name}` : "Ask about this deal";
+  const list = d ? (chats[d.id] ||= []) : [];
+  $("#msgs").innerHTML = "";
+  if(!list.length) addMsg("a", d ? `I've read every call and email on ${d.name}. Ask me anything about this deal.` : "Pick a deal first.");
+  list.forEach(m => addMsg(m.role === "user" ? "u" : "a", m.content));
+  $("#sugs").innerHTML = "";
+  (d ? SUGS[d.id] || [] : []).forEach(s => { const b = document.createElement("button"); b.type = "button"; b.className = "sug"; b.textContent = s; b.onclick = () => ask(s); $("#sugs").append(b); });
+}
+function addMsg(cls, text){ const el = document.createElement("div"); el.className = "msg " + cls; el.textContent = text; $("#msgs").append(el); $("#msgs").scrollTop = 1e9; return el; }
+async function ask(q){
+  const d = DEALS.find(x => x.id === dealId); if(!d || !q.trim()) return;
+  const list = (chats[d.id] ||= []);
+  if(list.length === 0) $("#msgs").innerHTML = "";
+  list.push({role:"user", content:q}); addMsg("u", q); $("#q").value = "";
+  const bubble = addMsg("a think", "Reading calls and emails…");
+  if(!sample){
+    const c = CANNED[q] || "In the live tool, Claude answers this from the deal's Pipedrive and Glyphic data. In this demo, live answers need Claude access in the viewer. Try one of the suggested questions.";
+    setTimeout(() => { bubble.className = "msg a"; bubble.textContent = c; list.push({role:"assistant", content:c}); }, 600);
+    return;
+  }
+  ctl?.abort(); ctl = new AbortController();
+  const rules = "You are the deal assistant inside Procuros's Deal Learning Tool. Procuros sells an EDI platform. Answer the sales rep's question using ONLY the deal data below (from Pipedrive and Glyphic call transcripts). Be specific, quote the prospect when useful, name the source and date. If the data doesn't answer it, say so. Keep answers under 120 words, plain text, use • for bullets.\n\nDEAL DATA:\n" + dealContext(d);
+  try{
+    const { text } = await sample([{role:"user", content:rules}, ...list.slice(-8)], { cache:false, signal:ctl.signal, modelTier:"quick", onText:({text}) => { bubble.className = "msg a"; bubble.textContent = text; $("#msgs").scrollTop = 1e9; } });
+    list.push({role:"assistant", content:text});
+  }catch(e){
+    if(e.code === "cancelled"){ bubble.remove(); return; }
+    const c = CANNED[q] || (e.code === "not_granted" ? "Claude access was declined, so answers are limited to the suggested questions." : "Couldn't reach Claude. Try again in a moment.");
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled"].includes(e.code)){ sample = null; $("#mode").textContent = "Offline demo answers"; }
+    bubble.className = "msg a"; bubble.textContent = e.text || c; list.push({role:"assistant", content:bubble.textContent});
+  }
+}
+$("#ask").addEventListener("submit", e => { e.preventDefault(); ask($("#q").value); });
+
+function renderAll(){ renderRail(); renderDeal(); renderChat(); }
+renderAll();
+
+(async () => {
+  try { sample = window.claude ? await window.claude.use("sample") : null; } catch { sample = null; }
+  $("#mode").textContent = sample ? "Live: answered by Claude from this deal's data" : "Offline demo answers";
+})();
+</script>
+
+</body>
+</html>
